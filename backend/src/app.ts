@@ -12,8 +12,13 @@ import { media } from './modules/media/routes.js';
 import { errors } from './shared/http.js';
 export const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', config.TRUST_PROXY_HOPS);
 app.use(
-  helmet(),
+  helmet({
+    contentSecurityPolicy: {
+      directives: { imgSrc: ["'self'", 'data:', 'https:'] },
+    },
+  }),
   cors({ origin: config.CLIENT_ORIGIN, credentials: true }),
   express.json({ limit: '256kb' }),
   rateLimit({ windowMs: 60000, limit: 200 }),

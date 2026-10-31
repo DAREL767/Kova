@@ -104,11 +104,27 @@ export function Admin() {
   async function saveProduct(e: FormEvent) {
     e.preventDefault();
     if (
+      draft.variants.some((variant) => {
+        const images = variant.images.map((image) => image.trim()).filter(Boolean);
+        return images.length < 2 || images.length > 12 || new Set(images).size !== images.length;
+      })
+    ) {
+      setError('Cada color debe tener entre 2 y 12 imágenes diferentes.');
+      return;
+    }
+    const payload = {
+      ...draft,
+      variants: draft.variants.map((variant) => ({
+        ...variant,
+        images: variant.images.map((image) => image.trim()).filter(Boolean),
+      })),
+    };
+    if (
       await run(
         () =>
           api(
             `/products${editing ? `/${editing}` : ''}`,
-            send(editing ? 'PUT' : 'POST', editing ? { ...draft, revision } : draft),
+            send(editing ? 'PUT' : 'POST', editing ? { ...payload, revision } : payload),
           ),
         'Prenda guardada',
       )
@@ -306,7 +322,7 @@ export function Admin() {
                   />
                   <div className="image-previews">
                     {v.images
-                      .filter((url) => url.startsWith('https://') || url.startsWith('/api/media/'))
+                      .filter((url) => /^https?:\/\//.test(url) || url.startsWith('/api/media/'))
                       .map((url, n) => (
                         <img key={n} src={url} alt={`Referencia ${n + 1}`} />
                       ))}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Upload } from 'lucide-react';
 import { ErrorMessage } from './components';
+import { apiUrl } from './api';
 export function ImageUpload({
   onUploaded,
   multiple = false,
@@ -36,14 +37,14 @@ export function ImageUpload({
               for (const file of files) {
                 const form = new FormData();
                 form.append('image', file);
-                const response = await fetch('/api/media', {
+                const response = await fetch(apiUrl('/media'), {
                   method: 'POST',
                   body: form,
                   credentials: 'include',
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error ?? 'No se pudo subir la imagen');
-                urls.push(data.url);
+                urls.push(apiUrl(`/media/${data.url.split('/').pop()}`));
               }
             } catch (err) {
               setError((err as Error).message);

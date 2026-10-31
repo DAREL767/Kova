@@ -139,7 +139,6 @@ export function Footer() {
           <h3>TU KOVA</h3>
           <Link to="/cuenta">Mi cuenta</Link>
           <Link to="/carrito">Mi carrito</Link>
-          <Link to="/acceso">Acceso del personal</Link>
         </div>
       </div>
       <div className="footer-bottom">

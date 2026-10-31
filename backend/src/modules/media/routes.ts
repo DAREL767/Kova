@@ -54,7 +54,8 @@ media.get('/:id', async (req, res, next) => {
   res.setHeader('Content-Type', String(file.metadata?.mime ?? 'application/octet-stream'));
   res.setHeader('Content-Length', file.length);
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  // Catalog images are public and may be embedded by the separately hosted frontend.
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   const stream = storage.openDownloadStream(id);
   stream.on('error', (error) => {
     if (res.headersSent) res.destroy();

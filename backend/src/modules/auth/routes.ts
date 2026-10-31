@@ -32,8 +32,8 @@ export const auth = Router();
 const authLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  secure: process.env.NODE_ENV === 'production' || config.COOKIE_SAME_SITE === 'none',
+  sameSite: config.COOKIE_SAME_SITE,
   path: '/api',
 };
 auth.post('/register', authLimit, validate(credentials), async (req, res) => {

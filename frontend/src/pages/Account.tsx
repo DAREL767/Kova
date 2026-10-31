@@ -26,7 +26,9 @@ export function Access() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const next = params.get('next');
-  const target = next?.startsWith('/') && !next.startsWith('//') ? next : '/cuenta';
+  const requestedTarget =
+    next?.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : null;
+  const target = requestedTarget ?? (user && user.role !== 'customer' ? '/personal' : '/cuenta');
   if (!ready) return <Loading />;
   if (user) return <Navigate to={target} replace />;
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -39,8 +41,10 @@ export function Access() {
     try {
       if (register)
         await api('/auth/register', send('POST', { name: data.get('name'), email, password }));
-      await login(email, password);
-      navigate(target, { replace: true });
+      const signedIn = await login(email, password);
+      navigate(requestedTarget ?? (signedIn.role === 'customer' ? '/cuenta' : '/personal'), {
+        replace: true,
+      });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -112,7 +116,6 @@ export function Access() {
             {register ? 'Inicia sesión' : 'Regístrate'}
           </button>
         </p>
-        <small>El personal ingresa con su correo y contraseña asignados.</small>
       </div>
     </div>
   );

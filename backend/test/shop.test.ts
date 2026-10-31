@@ -7,11 +7,13 @@ import request from 'supertest';
 
 process.env.MONGODB_URI = 'mongodb://127.0.0.1/kova-test';
 process.env.JWT_SECRET = 'test-secret-with-at-least-32-characters';
+process.env.COOKIE_SAME_SITE = 'strict';
+process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 const { app } = await import('../src/app.js');
 const { User } = await import('../src/modules/auth/model.js');
 const { Product } = await import('../src/modules/catalog/model.js');
 const { Order } = await import('../src/modules/shop/models.js');
-const { productInput } = await import('../src/modules/catalog/validation.js');
+const { productInput, productUpdateInput } = await import('../src/modules/catalog/validation.js');
 const { Content } = await import('../src/modules/content/model.js');
 let mongo: MongoMemoryReplSet;
 const productData = {
@@ -41,6 +43,48 @@ after(async () => {
   await mongo?.stop();
 });
 
+test('la API es independiente y permite solicitudes con credenciales desde el frontend', async () => {
+  await request(app).get('/cuenta').expect(404);
+  const missing = await request(app).get('/api/unknown').set('Accept', 'text/html').expect(404);
+  assert.equal(missing.body.error, 'Ruta no encontrada');
+  const preflight = await request(app)
+    .options('/api/auth/login')
+    .set('Origin', process.env.CLIENT_ORIGIN!)
+    .set('Access-Control-Request-Method', 'POST')
+    .set('Access-Control-Request-Headers', 'content-type')
+    .expect(204);
+  assert.equal(preflight.headers['access-control-allow-origin'], process.env.CLIENT_ORIGIN);
+  assert.equal(preflight.headers['access-control-allow-credentials'], 'true');
+});
+
+test('las colecciones separan ropa y calzado y las recomendaciones excluyen la prenda actual', async () => {
+  const api = request(app);
+  const clothes = await Product.create({ ...productData, name: 'Prenda de colección' });
+  await Product.create({ ...productData, name: 'Calzado de colección', category: 'calzado' });
+  await Product.create({ ...productData, name: 'Guayos de colección', category: 'guayos' });
+  const inactive = await Product.create({ ...productData, active: false });
+  const clothing = await api.get('/api/products/browse?collection=ropa').expect(200);
+  assert.ok(clothing.body.items.some((p: any) => p._id === clothes.id));
+  assert.ok(
+    clothing.body.items.every((p: any) => !['calzado', 'tenis', 'guayos'].includes(p.category)),
+  );
+  const shoes = await api.get('/api/products?collection=calzado').expect(200);
+  assert.ok(shoes.body.length >= 2);
+  assert.ok(shoes.body.every((p: any) => ['calzado', 'tenis', 'guayos'].includes(p.category)));
+  const related = await api.get(`/api/products/${clothes.id}/suggestions`).expect(200);
+  assert.ok(related.body.length > 0);
+  assert.ok(related.body.every((p: any) => p._id !== clothes.id && p._id !== inactive.id));
+  await Product.deleteMany({
+    _id: {
+      $in: [
+        ...clothing.body.items.map((p: any) => p._id),
+        ...shoes.body.map((p: any) => p._id),
+        inactive.id,
+      ],
+    },
+  });
+});
+
 test('cada variante exige dos imágenes, stock y tallas únicas', () => {
   assert.equal(productInput.safeParse(productData).success, true);
   for (const category of ['guayos', 'camisetas', 'buzos', 'pantalonetas', 'bermudas', 'sacos']) {
@@ -49,6 +93,20 @@ test('cada variante exige dos imágenes, stock y tallas únicas', () => {
   const invalid = structuredClone(productData);
   invalid.variants[0].images.pop();
   assert.equal(productInput.safeParse(invalid).success, false);
+  assert.equal(productUpdateInput.safeParse({ ...invalid, revision: 0 }).success, false);
+  const secondColor = structuredClone(productData.variants[0]);
+  secondColor.key = 'blanco';
+  secondColor.images = ['https://example.com/white.jpg'];
+  const missingVariantPhoto = { ...productData, variants: [...productData.variants, secondColor] };
+  assert.equal(productInput.safeParse(missingVariantPhoto).success, false);
+  assert.equal(
+    productUpdateInput.safeParse({ ...missingVariantPhoto, revision: 0 }).success,
+    false,
+  );
+  secondColor.images.push('https://example.com/white.jpg');
+  assert.equal(productInput.safeParse(missingVariantPhoto).success, false);
+  secondColor.images[1] = 'https://example.com/white-back.jpg';
+  assert.equal(productInput.safeParse(missingVariantPhoto).success, true);
   invalid.variants[0].images.push('https://example.com/back.jpg');
   invalid.variants[0].sizes[0].stock = 0;
   assert.equal(productInput.safeParse(invalid).success, false);
@@ -69,6 +127,11 @@ test('permisos, carrito persistente, checkout idempotente y devoluciones', async
   const token = login.body.token;
   const header = { Authorization: `Bearer ${token}` };
   await api.post('/api/products').set(header).send(productData).expect(403);
+  await api.get('/api/products/manage').set(header).expect(403);
+  await api.get('/api/auth/staff').set(header).expect(403);
+  await api.get('/api/shop/admin/returns').set(header).expect(403);
+  await api.put('/api/content').set(header).send({}).expect(403);
+  await api.post('/api/media').set(header).expect(403);
   const product = await Product.create(productData);
   await api
     .put('/api/shop/cart')
@@ -240,6 +303,7 @@ test('imágenes, calzado compatible, paginación y edición sin perder stock ni 
     .expect(201);
   const image = await api.get(upload.body.url).expect(200);
   assert.ok(image.headers['content-type'].startsWith('image/png'));
+  assert.equal(image.headers['cross-origin-resource-policy'], 'cross-origin');
   assert.deepEqual(image.body, png);
   const data = {
     ...structuredClone(productData),

@@ -1,44 +1,17 @@
 {
-  "name": "kova-api",
-  "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "name": "kova",
+  "version": "0.1.0",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build",
+    "test": "npm --prefix backend test",
+    "start": "npm --prefix backend start",
+    "seed:admin": "npm --prefix backend run seed:admin",
     "build:frontend": "npm --prefix frontend run build",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "test": "tsx --test test/*.test.ts",
-    "check": "tsc --noEmit",
-    "seed:admin": "tsx src/seed-admin.ts"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "express-rate-limit": "^8.1.0",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.19.2",
-    "multer": "^2.5.0",
-    "zod": "^4.1.12"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/multer": "^2.3.0",
-    "@types/node": "^22.18.0",
-    "@types/supertest": "^6.0.3",
-    "mongodb-memory-server": "^10.2.3",
-    "prettier": "^3.9.10",
-    "supertest": "^7.1.4",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
-  },
-  "engines": {
-    "node": ">=22"
+    "check": "npm --prefix backend run check && npm --prefix frontend run check",
+    "dev": "npm --prefix backend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "build:all": "npm run build && npm run build:frontend",
+    "dev:frontend": "npm --prefix frontend run dev"
   }
 }
