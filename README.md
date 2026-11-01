@@ -35,10 +35,11 @@ Variables:
 - `MONGODB_URI`: conexión a MongoDB con transacciones.
 - `JWT_SECRET`: secreto aleatorio de al menos 32 caracteres.
 - `CLIENT_ORIGIN`: origen exacto del frontend, por ejemplo `https://tienda.example.com`, sin barra final.
+- Para el despliegue actual: `CLIENT_ORIGIN=https://kova-ten-omega.vercel.app`. El servidor normaliza la barra final y permite este dominio explícitamente, tanto en CORS como en la validación de escrituras.
 - `NODE_ENV=production`: activa cookies Secure.
 - `PORT`: puerto del servicio.
 - `TRUST_PROXY_HOPS`: número de proxies de confianza, según la infraestructura; por defecto `0`.
-- `COOKIE_SAME_SITE`: `strict` por defecto. Para frontend y API en sitios distintos, usar `none`, que requiere HTTPS y configura Secure. Los navegadores que bloqueen cookies de terceros pueden impedir esa sesión; usar subdominios del mismo sitio evita depender de cookies de terceros, manteniendo ambos servicios independientes.
+- `COOKIE_SAME_SITE`: `none` por defecto en producción y `strict` en desarrollo. Una variable explícita prevalece sobre estos valores. Para frontend y API en sitios distintos, usar `none`, que requiere HTTPS y configura Secure. Los navegadores que bloqueen cookies de terceros pueden impedir esa sesión; usar subdominios del mismo sitio evita depender de cookies de terceros, manteniendo ambos servicios independientes.
 
 El backend solo sirve la API y `/health`. Las imágenes subidas se guardan en MongoDB GridFS y se sirven por `/api/media/:id`.
 

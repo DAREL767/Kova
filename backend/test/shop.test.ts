@@ -5,6 +5,7 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
+import { spawnSync } from 'node:child_process';
 
 process.env.MONGODB_URI = 'mongodb://127.0.0.1/kova-test';
 process.env.JWT_SECRET = 'test-secret-with-at-least-32-characters';
@@ -17,6 +18,34 @@ const { Order } = await import('../src/modules/shop/models.js');
 const { productInput, productUpdateInput } = await import('../src/modules/catalog/validation.js');
 const { Content } = await import('../src/modules/content/model.js');
 let mongo: MongoMemoryReplSet;
+test('producción normaliza la barra final del origen y configura cookies entre sitios', () => {
+  const environment = {
+    ...process.env,
+    NODE_ENV: 'production',
+    CLIENT_ORIGIN: 'https://kova-ten-omega.vercel.app/',
+  };
+  delete environment.COOKIE_SAME_SITE;
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '-e',
+      'const {config} = await import("./src/config.ts"); console.log(JSON.stringify({origin:config.CLIENT_ORIGIN,sameSite:config.COOKIE_SAME_SITE}));',
+    ],
+    {
+      cwd: new URL('../', import.meta.url),
+      env: environment,
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    origin: 'https://kova-ten-omega.vercel.app',
+    sameSite: 'none',
+  });
+});
 const productData = {
   name: 'Camisa Kova',
   description: 'Algodón',
@@ -487,4 +516,37 @@ test('las tres cuentas internas comparten edición y solo el administrador desac
       assert.equal((await User.findById(target.id))!.active, true);
     }
   }
+});
+
+test('Vercel recibe CORS con credenciales y supera la validación de origen en escrituras', async () => {
+  const origin = 'https://kova-ten-omega.vercel.app';
+  for (const path of ['/api/auth/login', '/api/products', '/api/content', '/api/media']) {
+    const preflight = await request(app)
+      .options(path)
+      .set('Origin', origin)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type')
+      .expect(204);
+    assert.equal(preflight.headers['access-control-allow-origin'], origin);
+    assert.equal(preflight.headers['access-control-allow-credentials'], 'true');
+    assert.match(preflight.headers.vary, /Origin/);
+  }
+  // A validation error confirms the trusted request reached the login handler.
+  const login = await request(app)
+    .post('/api/auth/login')
+    .set('Origin', origin)
+    .send({})
+    .expect(400);
+  assert.equal(login.headers['access-control-allow-origin'], origin);
+  const rejected = await request(app)
+    .post('/api/auth/login')
+    .set('Origin', 'https://kova-ten-omega.vercel.app.evil.example')
+    .send({})
+    .expect(403);
+  assert.equal(rejected.headers['access-control-allow-origin'], undefined);
+  const untrustedPreflight = await request(app)
+    .options('/api/auth/login')
+    .set('Origin', 'https://another-site.vercel.app')
+    .set('Access-Control-Request-Method', 'POST');
+  assert.equal(untrustedPreflight.headers['access-control-allow-origin'], undefined);
 });

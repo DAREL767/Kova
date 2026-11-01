@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
-import { config } from './config.js';
+import { config, allowedClientOrigins } from './config.js';
 import { auth } from './modules/auth/routes.js';
 import { catalog } from './modules/catalog/routes.js';
 import { shop } from './modules/shop/routes.js';
@@ -19,7 +19,10 @@ app.use(
       directives: { imgSrc: ["'self'", 'data:', 'https:'] },
     },
   }),
-  cors({ origin: config.CLIENT_ORIGIN, credentials: true }),
+  cors({
+    origin: (origin, callback) => callback(null, !!origin && allowedClientOrigins.has(origin)),
+    credentials: true,
+  }),
   express.json({ limit: '256kb' }),
   rateLimit({ windowMs: 60000, limit: 200 }),
 );
@@ -33,7 +36,7 @@ app.use('/api', (req, res, next) => {
   if (
     !['GET', 'HEAD', 'OPTIONS'].includes(req.method) &&
     req.headers.origin &&
-    req.headers.origin !== config.CLIENT_ORIGIN &&
+    !allowedClientOrigins.has(req.headers.origin) &&
     req.headers.origin !== `${req.protocol}://${req.get('host')}`
   ) {
     res.status(403).json({ error: 'Origen no permitido' });
