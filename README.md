@@ -30,6 +30,8 @@ La configuración privada local que antes estaba en la raíz se trasladó a `bac
 
 Desde `backend/`: `npm ci`, `npm run build`, `npm start`.
 
+El compilador TypeScript y las declaraciones de tipos necesarias para compilar están en `dependencies`: el backend también se puede compilar después de `npm ci --omit=dev`, incluido cuando el alojamiento establece `NODE_ENV=production` antes de instalar. El tipado estricto se mantiene activado.
+
 Variables:
 
 - `MONGODB_URI`: conexión a MongoDB con transacciones.
