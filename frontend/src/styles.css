@@ -286,6 +286,28 @@ form .button {
   display: flex;
   gap: 11px;
 }
+.header-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.header-search-form {
+  position: absolute;
+  right: 100%;
+  display: flex;
+  align-items: center;
+  width: min(280px, calc(100vw - 150px));
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px #0001;
+  z-index: 2;
+}
+.header-search-form input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 12px;
+}
 .bag {
   position: relative;
 }
@@ -1581,9 +1603,6 @@ form .button {
   .header-actions .icon {
     width: 30px;
     padding: 5px;
-  }
-  .header-actions .icon:first-child {
-    display: none;
   }
   .navigation {
     display: none;

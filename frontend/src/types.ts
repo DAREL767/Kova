@@ -30,7 +30,7 @@ export interface Product {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   role: string;
 }
 export interface CartItem {

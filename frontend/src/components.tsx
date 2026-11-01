@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Menu, Search, ShoppingBag, UserRound, X, ChevronDown } from 'lucide-react';
 import { useStore } from './store';
 import { categories, money, type Product } from './types';
@@ -9,6 +9,9 @@ export function Header() {
   const { user, cart } = useStore();
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchButton = useRef<HTMLButtonElement>(null);
   const close = () => setOpen(false);
   return (
     <>
@@ -88,9 +91,62 @@ export function Header() {
           </NavLink>
         </nav>
         <div className="header-actions">
-          <Link className="icon" to="/?search=1" aria-label="Buscar prendas">
-            <Search />
-          </Link>
+          <div className="header-search">
+            {searchOpen && (
+              <form
+                className="header-search-form"
+                id="header-search"
+                role="search"
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setSearchOpen(false);
+                    searchButton.current?.focus();
+                  }
+                }}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const q = String(new FormData(event.currentTarget).get('q') ?? '').trim();
+                  const query = new URLSearchParams(
+                    location.pathname === '/' ? location.search : '',
+                  );
+                  query.delete('search');
+                  if (q) query.set('q', q);
+                  else query.delete('q');
+                  navigate({ pathname: '/', search: query.toString(), hash: '#coleccion' });
+                  setSearchOpen(false);
+                  close();
+                  searchButton.current?.focus();
+                }}
+              >
+                <label className="sr-only" htmlFor="catalog-search">
+                  Buscar productos
+                </label>
+                <input
+                  id="catalog-search"
+                  name="q"
+                  type="search"
+                  autoFocus
+                  maxLength={100}
+                  placeholder="Buscar productos…"
+                  defaultValue={new URLSearchParams(location.search).get('q') ?? ''}
+                />
+                <button className="icon" type="submit" aria-label="Ver resultados">
+                  <ArrowRight size={18} />
+                </button>
+              </form>
+            )}
+            <button
+              ref={searchButton}
+              type="button"
+              className="icon"
+              aria-label={searchOpen ? 'Cerrar búsqueda' : 'Buscar productos'}
+              aria-expanded={searchOpen}
+              aria-controls="header-search"
+              onClick={() => setSearchOpen(!searchOpen)}
+            >
+              {searchOpen ? <X /> : <Search />}
+            </button>
+          </div>
           <Link className="icon" to={user ? '/cuenta' : '/acceso'} aria-label="Mi cuenta">
             <UserRound />
           </Link>

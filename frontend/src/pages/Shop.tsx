@@ -42,7 +42,7 @@ export function Home() {
   const [slide, setSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const search = params.get('q')?.trim() ?? '';
   const rail = useRef<HTMLDivElement>(null);
   const category = params.get('category') === 'tenis' ? 'calzado' : params.get('category');
   const gender = params.get('gender');
@@ -232,15 +232,6 @@ export function Home() {
               Buzos
             </button>
           </div>
-          <label className="search-field">
-            <span className="sr-only">Buscar productos</span>
-            <input
-              autoFocus={params.has('search')}
-              placeholder="Buscar en la colección"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
         </div>
         <ErrorMessage text={error} />
         {loading ? (

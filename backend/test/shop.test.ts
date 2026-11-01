@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
+import bcrypt from 'bcryptjs';
 
 process.env.MONGODB_URI = 'mongodb://127.0.0.1/kova-test';
 process.env.JWT_SECRET = 'test-secret-with-at-least-32-characters';
@@ -390,4 +391,100 @@ test('imágenes, calzado compatible, paginación y edición sin perder stock ni 
   const browse = await api.get('/api/products/browse?limit=1&seed=0.1').expect(200);
   const next = await api.get('/api/products/browse?limit=1&seed=0.1&page=2').expect(200);
   assert.notEqual(browse.body.items[0]._id, next.body.items[0]._id);
+});
+
+test('el administrador interno inicia por usuario sin correo y el registro público conserva sus reglas', async () => {
+  const admin = await User.findOne({ role: 'admin' }).select('+passwordHash');
+  assert.ok(admin);
+  const original = { email: admin.email, passwordHash: admin.passwordHash };
+  try {
+    await User.updateOne(
+      { _id: admin.id },
+      {
+        $set: { username: 'demo-owner', passwordHash: await bcrypt.hash('demo-pass', 12) },
+        $unset: { email: 1 },
+      },
+    );
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'Demo-Owner', password: 'demo-pass' })
+      .expect(200);
+    assert.equal(login.body.user.role, 'admin');
+    assert.equal(login.body.user.email, undefined);
+    await request(app)
+      .get('/api/products/manage')
+      .set('Authorization', `Bearer ${login.body.token}`)
+      .expect(200);
+    await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'Demo-Owner', password: 'incorrect' })
+      .expect(401);
+    await request(app)
+      .post('/api/auth/register')
+      .send({ name: 'Cliente', email: 'demo-owner', password: 'demo-pass' })
+      .expect(400);
+    await request(app)
+      .post('/api/auth/register')
+      .send({ name: 'Cliente', email: 'short@example.com', password: 'demo-pass' })
+      .expect(400);
+  } finally {
+    await User.updateOne({ _id: admin.id }, { $set: original, $unset: { username: 1 } });
+  }
+});
+
+test('las tres cuentas internas comparten edición y solo el administrador desactiva personal', async () => {
+  const accounts = await User.find({ role: { $in: ['admin', 'staff'] }, active: true });
+  assert.equal(accounts.length, 3);
+  assert.equal(accounts.filter((account) => account.role === 'admin').length, 1);
+  const target = accounts.find((account) => account.role === 'staff')!;
+  for (const account of accounts) {
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: account.email, password: 'a-strong-password' })
+      .expect(200);
+    const api = request(app);
+    const header = { Authorization: `Bearer ${login.body.token}` };
+    await api.get('/api/products/manage').set(header).expect(200);
+    const created = await api
+      .post('/api/products')
+      .set(header)
+      .send({ ...productData, name: `Edición ${account.role}` })
+      .expect(201);
+    await api
+      .put(`/api/products/${created.body._id}`)
+      .set(header)
+      .send({ ...productData, name: 'Prenda actualizada', revision: created.body.__v })
+      .expect(200);
+    await api.delete(`/api/products/${created.body._id}`).set(header).expect(204);
+    for (const key of ['homeBanner', 'contactBanner']) {
+      await api
+        .put('/api/content')
+        .set(header)
+        .send({ key, value: { title: 'Banner editable', subtitle: 'Prueba de permisos' } })
+        .expect(200);
+    }
+    await api.put('/api/content').set(header).send({ key: 'carousel', value: [] }).expect(200);
+    await api
+      .put('/api/content')
+      .set(header)
+      .send({ key: 'about', value: { title: 'Nosotros', text: 'Contenido editable' } })
+      .expect(200);
+    await api
+      .post('/api/media')
+      .set(header)
+      .attach(
+        'image',
+        Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=',
+          'base64',
+        ),
+        'permission.png',
+      )
+      .expect(201);
+    await api.get('/api/shop/admin/returns').set(header).expect(200);
+    if (account.role === 'staff') {
+      await api.delete(`/api/auth/staff/${target.id}`).set(header).expect(403);
+      assert.equal((await User.findById(target.id))!.active, true);
+    }
+  }
 });

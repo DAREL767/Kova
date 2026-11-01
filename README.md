@@ -55,6 +55,8 @@ El alojamiento del frontend debe devolver `index.html` para las rutas de React, 
 - El registro público siempre crea clientes. No existe un selector de roles.
 - El administrador crea y desactiva hasta dos cuentas activas de personal.
 - Administrador y personal ingresan por defecto al panel interno. Solo el administrador gestiona cuentas de personal.
+- Las tres cuentas internas tienen los mismos permisos para crear, editar y retirar prendas, subir imágenes y modificar banners, carrusel y contenido. La desactivación de cuentas de personal está reservada al administrador y revoca sus sesiones.
+- El administrador puede usar un nombre de usuario interno sin correo. El registro público conserva el correo obligatorio y el mínimo de 12 caracteres para las contraseñas; las credenciales internas no se guardan en el repositorio.
 - Cada variante/color exige de 2 a 12 referencias de imágenes diferentes. La primera es la portada y la segunda aparece al pasar el cursor.
 - La ropa se presenta en cuadrícula; el carrusel de calzado se alimenta de las categorías de calzado. Las recomendaciones excluyen el producto abierto, priorizan su categoría y completan con otros productos activos.
 - El carrusel promocional del encabezado se administra por separado.

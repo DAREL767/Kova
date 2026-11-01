@@ -78,8 +78,13 @@ export function Access() {
             </label>
           )}
           <label>
-            Correo electrónico
-            <input type="email" name="email" autoComplete="email" required />
+            {register ? 'Correo electrónico' : 'Correo o nombre de usuario'}
+            <input
+              type={register ? 'email' : 'text'}
+              name="email"
+              autoComplete="username"
+              required
+            />
           </label>
           <label>
             Contraseña
@@ -88,10 +93,10 @@ export function Access() {
               name="password"
               autoComplete={register ? 'new-password' : 'current-password'}
               required
-              minLength={12}
+              minLength={register ? 12 : 1}
               maxLength={72}
             />
-            <small>Mínimo 12 caracteres.</small>
+            {register && <small>Mínimo 12 caracteres.</small>}
           </label>
           <ErrorMessage text={error} />
           <button className="button full" disabled={busy}>

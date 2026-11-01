@@ -5,7 +5,15 @@ export const User = model(
   new Schema(
     {
       name: { type: String, required: true },
-      email: { type: String, required: true, unique: true, lowercase: true },
+      email: {
+        type: String,
+        required: function (this: { username?: string }) {
+          return !this.username;
+        },
+        unique: true,
+        lowercase: true,
+      },
+      username: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
       passwordHash: { type: String, required: true, select: false },
       role: {
         type: String,

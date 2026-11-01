@@ -25,7 +25,7 @@ export const credentials = z
 const publicUser = (u: {
   _id: { toString(): string };
   name: string;
-  email: string;
+  email?: string | null;
   role: string;
 }) => ({ id: u._id.toString(), name: u.name, email: u.email, role: u.role });
 export const auth = Router();
@@ -45,20 +45,42 @@ auth.post('/register', authLimit, validate(credentials), async (req, res) => {
   });
   res.status(201).json(publicUser(user));
 });
-auth.post('/login', authLimit, validate(credentials.omit({ name: true })), async (req, res) => {
-  const user = await User.findOne({ email: req.body.email, active: { $ne: false } }).select(
-    '+passwordHash +tokenVersion',
-  );
-  if (!user || !(await bcrypt.compare(req.body.password, user.passwordHash)))
-    throw new HttpError(401, 'Credenciales incorrectas');
-  const token = jwt.sign({ ver: user.tokenVersion ?? 0 }, config.JWT_SECRET, {
-    subject: user.id,
-    expiresIn: '8h',
-    algorithm: 'HS256',
-  });
-  res.cookie('kova_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 });
-  res.json({ user: publicUser(user), token });
-});
+auth.post(
+  '/login',
+  authLimit,
+  validate(
+    z
+      .object({
+        email: z
+          .string()
+          .trim()
+          .min(1)
+          .max(254)
+          .transform((value) => value.toLowerCase()),
+        password: z
+          .string()
+          .min(1)
+          .max(72)
+          .refine((value) => Buffer.byteLength(value, 'utf8') <= 72),
+      })
+      .strict(),
+  ),
+  async (req, res) => {
+    const user = await User.findOne({
+      $or: [{ email: req.body.email }, { username: req.body.email, role: 'admin' }],
+      active: { $ne: false },
+    }).select('+passwordHash +tokenVersion');
+    if (!user || !(await bcrypt.compare(req.body.password, user.passwordHash)))
+      throw new HttpError(401, 'Credenciales incorrectas');
+    const token = jwt.sign({ ver: user.tokenVersion ?? 0 }, config.JWT_SECRET, {
+      subject: user.id,
+      expiresIn: '8h',
+      algorithm: 'HS256',
+    });
+    res.cookie('kova_session', token, { ...cookieOptions, maxAge: 8 * 60 * 60 * 1000 });
+    res.json({ user: publicUser(user), token });
+  },
+);
 auth.get('/me', authenticate, async (req, res) => {
   const user = await User.findById(req.user!.id);
   if (!user) throw new HttpError(401, 'Sesión inválida');
