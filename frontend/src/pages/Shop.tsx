@@ -23,12 +23,15 @@ import {
   type Banner,
   type ProductPageResult,
 } from '../types';
-import { defaultHomeBanner, defaultContactBanner } from '../brand';
+import { defaultHomeBanner, defaultContactBanner, defaultAboutBanner } from '../brand';
+import { preloadImages } from '../images';
 import { BrandIcon } from '../BrandIcon';
 import sourceText from '../brand-content.json';
 const brandText = sourceText.map((text) => text.trim());
 
 export function Home() {
+  const { catalogVersion, contentVersion } = useStore();
+  const [contentReady, setContentReady] = useState(false);
   const [params, setParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -54,20 +57,33 @@ export function Home() {
   const queryKey = query.toString();
   const latestQuery = useRef(queryKey);
   latestQuery.current = queryKey;
+  const loadedQuery = useRef('');
+  const pageRef = useRef(page);
+  pageRef.current = page;
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    const changedQuery = loadedQuery.current !== queryKey;
+    const requestedPages = changedQuery ? 1 : pageRef.current;
+    loadedQuery.current = queryKey;
+    if (changedQuery) setLoading(true);
     setError('');
     setMoreBusy(false);
-    setProducts([]);
+    if (changedQuery) setProducts([]);
     const timer = setTimeout(
       () =>
-        api<ProductPageResult>(`/products/browse?${queryKey}&page=1`)
-          .then((data) => {
+        Promise.all(
+          Array.from({ length: requestedPages }, (_, index) =>
+            api<ProductPageResult>(`/products/browse?${queryKey}&page=${index + 1}`),
+          ),
+        )
+          .then(async (results) => {
+            const data = results[0];
+            const items = results.flatMap((result) => result.items);
+            await preloadImages(items.slice(0, 6).map((product) => product.variants[0]?.images[0]));
             if (active) {
-              setProducts(data.items);
+              setProducts(items);
               setTotal(data.total);
-              setPage(1);
+              setPage(requestedPages);
               setPages(data.pages);
             }
           })
@@ -77,25 +93,32 @@ export function Home() {
           .finally(() => {
             if (active) setLoading(false);
           }),
-      250,
+      0,
     );
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [queryKey]);
+  }, [queryKey, catalogVersion]);
   useEffect(() => {
     let active = true;
     api<Content[]>('/content')
-      .then((data) => {
+      .then(async (data) => {
+        const carousel = (data.find((c) => c.key === 'carousel')?.value as Slide[]) ?? [];
+        const banner =
+          (data.find((c) => c.key === 'homeBanner')?.value as Banner) ?? defaultHomeBanner;
+        await preloadImages([carousel[0]?.image, banner.image]);
         if (active) {
-          setSlides((data.find((c) => c.key === 'carousel')?.value as Slide[]) ?? []);
+          setSlides(carousel);
           setHomeBanner(
             (data.find((c) => c.key === 'homeBanner')?.value as Banner) ?? defaultHomeBanner,
           );
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setContentReady(true);
+      });
     api<Product[]>('/products?collection=calzado&limit=12')
       .then((data) => {
         if (active) setShoes(data);
@@ -104,13 +127,14 @@ export function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [contentVersion, catalogVersion]);
   async function loadMore() {
     setMoreBusy(true);
     setError('');
     const key = queryKey;
     try {
       const data = await api<ProductPageResult>(`/products/browse?${key}&page=${page + 1}`);
+      await preloadImages(data.items.slice(0, 6).map((product) => product.variants[0]?.images[0]));
       if (latestQuery.current === key) {
         setProducts((previous) => [
           ...previous,
@@ -132,7 +156,11 @@ export function Home() {
     return () => clearInterval(timer);
   }, [slides.length]);
   const clothes = products;
-  const current = slides[slide];
+  const current = slides[slide % (slides.length || 1)];
+  useEffect(() => {
+    void preloadImages(slides.map((item) => item.image));
+  }, [slides]);
+  if (!contentReady || loading) return <Loading />;
   return (
     <>
       <div className="announcement">TU ESTILO. TU RITMO. TU PRÓXIMO MOVIMIENTO.</div>
@@ -239,8 +267,8 @@ export function Home() {
         ) : clothes.length ? (
           <>
             <div className="product-grid">
-              {clothes.map((p) => (
-                <ProductCard product={p} key={p._id} />
+              {clothes.map((p, index) => (
+                <ProductCard product={p} key={p._id} priority={index < 6} />
               ))}
             </div>
             {page < pages && (
@@ -325,6 +353,7 @@ export function Home() {
 }
 
 export function ProductPage() {
+  const { catalogVersion } = useStore();
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -337,12 +366,16 @@ export function ProductPage() {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     setProduct(null);
-    setError('');
+    setRelated([]);
     setSize('');
     setQuantity(1);
+  }, [id]);
+  useEffect(() => {
+    setError('');
     let active = true;
     api<Product>(`/products/${id}`)
-      .then((p) => {
+      .then(async (p) => {
+        await preloadImages(p.variants[0]?.images.slice(0, 2) ?? []);
         if (active) setProduct(p);
       })
       .catch((e) => {
@@ -356,8 +389,8 @@ export function ProductPage() {
     return () => {
       active = false;
     };
-  }, [id]);
-  if (!product)
+  }, [id, catalogVersion]);
+  if (!product || product._id !== id)
     return <div className="page">{error ? <ErrorMessage text={error} /> : <Loading />}</div>;
   const variant =
     product.variants.find((v) => v.key === params.get('color')) ?? product.variants[0];
@@ -490,12 +523,30 @@ export function ProductPage() {
 }
 
 export function AboutPage() {
+  const { contentVersion } = useStore();
   const [custom, setCustom] = useState<About | null>(null);
+  const [banner, setBanner] = useState<Banner>(defaultAboutBanner);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
+    let active = true;
     api<Content[]>('/content')
-      .then((c) => setCustom((c.find((i) => i.key === 'about')?.value as About) ?? null))
-      .catch(() => {});
-  }, []);
+      .then(async (c) => {
+        const next =
+          (c.find((i) => i.key === 'aboutBanner')?.value as Banner) ?? defaultAboutBanner;
+        const about = (c.find((i) => i.key === 'about')?.value as About) ?? null;
+        await preloadImages([next.image, about?.image]);
+        if (!active) return;
+        setBanner(next);
+        setCustom(about);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [contentVersion]);
   const headings = ['Historia', '¿A que nos dedicamos?', 'Mision', 'Vision', 'Valores'];
   const labels: Record<string, string> = {
     Historia: 'Nuestra historia',
@@ -504,16 +555,27 @@ export function AboutPage() {
     Vision: 'Nuestra visión',
     Valores: 'Nuestros valores',
   };
+  if (!ready) return <Loading />;
   return (
     <>
-      <section className="inner-hero">
+      <section
+        className={`inner-hero ${banner.image ? 'image-banner' : ''}`}
+        style={
+          banner.image
+            ? {
+                backgroundImage: `linear-gradient(90deg,#000a,#0003),url(${JSON.stringify(banner.image)})`,
+              }
+            : undefined
+        }
+      >
         <span className="eyebrow">IBAGUÉ, COLOMBIA · DESDE 2024</span>
-        <h1>{custom?.title || 'UNA HISTORIA EN MOVIMIENTO.'}</h1>
-        <p>Una familia, una pasión y muchas formas de seguir adelante.</p>
+        <h1 className="preserve">{banner.title}</h1>
+        <p className="preserve">{banner.subtitle}</p>
       </section>
       <div className="about-body page">
         {custom ? (
           <>
+            <h2>{custom.title}</h2>
             <p className="preserve">{custom.text}</p>
             {custom.image && (
               <img className="about-image" src={custom.image} alt="Nuestra historia Kova" />
@@ -544,16 +606,27 @@ export function AboutPage() {
   );
 }
 export function ContactPage() {
+  const { contentVersion } = useStore();
   const [banner, setBanner] = useState<Banner>(defaultContactBanner);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
+    let active = true;
     api<Content[]>('/content')
-      .then((c) =>
-        setBanner(
-          (c.find((i) => i.key === 'contactBanner')?.value as Banner) ?? defaultContactBanner,
-        ),
-      )
-      .catch(() => {});
-  }, []);
+      .then(async (c) => {
+        const next =
+          (c.find((i) => i.key === 'contactBanner')?.value as Banner) ?? defaultContactBanner;
+        await preloadImages([next.image]);
+        if (active) setBanner(next);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [contentVersion]);
+  if (!ready) return <Loading />;
   return (
     <>
       <section

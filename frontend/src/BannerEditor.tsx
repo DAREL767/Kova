@@ -8,10 +8,12 @@ export function BannerEditor({
   contentKey,
   initial,
   label,
+  simple = false,
 }: {
-  contentKey: 'homeBanner' | 'contactBanner';
+  contentKey: 'homeBanner' | 'contactBanner' | 'accessBanner' | 'aboutBanner';
   initial: Banner;
   label: string;
+  simple?: boolean;
 }) {
   const [banner, setBanner] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -70,24 +72,26 @@ export function BannerEditor({
           </button>
         </div>
       )}
-      <div className="form-grid">
-        <label>
-          Texto del botón (opcional)
-          <input
-            maxLength={50}
-            value={banner.ctaLabel ?? ''}
-            onChange={(e) => setBanner({ ...banner, ctaLabel: e.target.value || undefined })}
-          />
-        </label>
-        <label>
-          Destino interno del botón
-          <input
-            placeholder="/?category=calzado"
-            value={banner.href ?? ''}
-            onChange={(e) => setBanner({ ...banner, href: e.target.value || undefined })}
-          />
-        </label>
-      </div>
+      {!simple && (
+        <div className="form-grid">
+          <label>
+            Texto del botón (opcional)
+            <input
+              maxLength={50}
+              value={banner.ctaLabel ?? ''}
+              onChange={(e) => setBanner({ ...banner, ctaLabel: e.target.value || undefined })}
+            />
+          </label>
+          <label>
+            Destino interno del botón
+            <input
+              placeholder="/?category=calzado"
+              value={banner.href ?? ''}
+              onChange={(e) => setBanner({ ...banner, href: e.target.value || undefined })}
+            />
+          </label>
+        </div>
+      )}
       <ErrorMessage text={error} />
       <button className="button" disabled={busy}>
         {busy ? 'GUARDANDO…' : 'GUARDAR BANNER'}

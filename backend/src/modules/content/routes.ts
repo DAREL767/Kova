@@ -48,6 +48,12 @@ const input = z.discriminatedUnion('key', [
     .strict(),
   z.object({ key: z.literal('homeBanner'), value: banner }).strict(),
   z.object({ key: z.literal('contactBanner'), value: banner }).strict(),
+  z
+    .object({ key: z.literal('accessBanner'), value: banner.omit({ ctaLabel: true, href: true }) })
+    .strict(),
+  z
+    .object({ key: z.literal('aboutBanner'), value: banner.omit({ ctaLabel: true, href: true }) })
+    .strict(),
 ]);
 export const content = Router();
 content.get('/', async (_req, res) => res.json(await Content.find().select('key value -_id')));

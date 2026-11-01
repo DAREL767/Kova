@@ -10,6 +10,8 @@ import { shop } from './modules/shop/routes.js';
 import { content } from './modules/content/routes.js';
 import { media } from './modules/media/routes.js';
 import { errors } from './shared/http.js';
+import { Product } from './modules/catalog/model.js';
+import { Content } from './modules/content/model.js';
 export const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', config.TRUST_PROXY_HOPS);
@@ -45,6 +47,16 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.use('/api/auth', auth);
+app.get('/api/updates', async (_req, res) => {
+  const [product, content] = await Promise.all([
+    Product.findOne().sort({ updatedAt: -1 }).select('updatedAt').lean(),
+    Content.findOne().sort({ updatedAt: -1 }).select('updatedAt').lean(),
+  ]);
+  res.json({
+    catalog: product?.updatedAt?.toISOString() ?? '',
+    content: content?.updatedAt?.toISOString() ?? '',
+  });
+});
 app.use('/api/products', catalog);
 app.use('/api/shop', shop);
 app.use('/api/content', content);

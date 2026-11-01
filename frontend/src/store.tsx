@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, send, ApiError } from './api';
+import { api, send, ApiError, setSessionToken } from './api';
+import { useUpdates } from './useUpdates';
 import type { User, CartItem } from './types';
 interface Store {
   user: User | null;
   ready: boolean;
   cart: CartItem[];
   notice: string;
+  catalogVersion: number;
+  contentVersion: number;
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   refreshCart: () => Promise<void>;
@@ -15,6 +18,7 @@ interface Store {
 const Context = createContext<Store>(null!);
 export const useStore = () => useContext(Context);
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const updates = useUpdates();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [cart, updateCart] = useState<CartItem[]>([]);
@@ -24,11 +28,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateCart(data.items);
   }
   useEffect(() => {
-    sessionStorage.removeItem('kova-token');
     api<User>('/auth/me')
       .then(async (u) => {
         setUser(u);
-        await refreshCart();
+        await refreshCart().catch(() =>
+          notify('No pudimos cargar el carrito. Puedes volver a intentarlo.'),
+        );
       })
       .catch(() => {
         setUser(null);
@@ -49,18 +54,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [notice]);
   async function login(email: string, password: string) {
-    const data = await api<{ user: User }>('/auth/login', send('POST', { email, password }));
+    const data = await api<{ user: User; token: string }>(
+      '/auth/login',
+      send('POST', { email, password }),
+    );
+    setSessionToken(data.token);
     setUser(data.user);
-    await refreshCart();
+    await refreshCart().catch(() =>
+      notify('No pudimos cargar el carrito. Puedes volver a intentarlo.'),
+    );
     return data.user;
   }
   async function logout() {
     try {
       await api('/auth/logout', { method: 'POST' });
+      setSessionToken('');
       setUser(null);
       updateCart([]);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
+        setSessionToken('');
         setUser(null);
         updateCart([]);
       } else notify('No pudimos cerrar la sesión. Inténtalo de nuevo.');
@@ -72,7 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
   return (
     <Context.Provider
-      value={{ user, ready, cart, notice, login, logout, refreshCart, setCart, notify }}
+      value={{ user, ready, cart, notice, ...updates, login, logout, refreshCart, setCart, notify }}
     >
       {children}
     </Context.Provider>

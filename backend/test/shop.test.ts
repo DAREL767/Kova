@@ -550,3 +550,95 @@ test('Vercel recibe CORS con credenciales y supera la validación de origen en e
     .set('Access-Control-Request-Method', 'POST');
   assert.equal(untrustedPreflight.headers['access-control-allow-origin'], undefined);
 });
+
+test('los banners simples admiten imagen y texto sin botones para las tres cuentas internas', async () => {
+  const accounts = await User.find({ role: { $in: ['admin', 'staff'] }, active: true });
+  for (const account of accounts) {
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: account.email, password: 'a-strong-password' })
+      .expect(200);
+    const header = { Authorization: `Bearer ${login.body.token}` };
+    for (const key of ['accessBanner', 'aboutBanner']) {
+      const value = {
+        title: 'Banner simple',
+        subtitle: 'Texto editable',
+        image: 'https://example.com/banner.jpg',
+      };
+      await request(app).put('/api/content').set(header).send({ key, value }).expect(200);
+      await request(app)
+        .put('/api/content')
+        .set(header)
+        .send({ key, value: { ...value, ctaLabel: 'No permitido' } })
+        .expect(400);
+      const content = await request(app).get('/api/content').expect(200);
+      assert.deepEqual(content.body.find((item: any) => item.key === key).value, value);
+    }
+  }
+  await request(app)
+    .put('/api/content')
+    .send({ key: 'accessBanner', value: { title: 'X', subtitle: '' } })
+    .expect(401);
+});
+
+test('sesiones simultáneas por Bearer funcionan sin cookies y una cuenta no cierra la otra', async () => {
+  const accounts = await User.find({ role: 'staff', active: true });
+  const sessions = await Promise.all(
+    accounts.map(async (account) => {
+      const login = await request(app)
+        .post('/api/auth/login')
+        .set('Origin', 'https://kova-ten-omega.vercel.app')
+        .send({ email: account.email, password: 'a-strong-password' })
+        .expect(200);
+      return { account, token: login.body.token };
+    }),
+  );
+  for (const session of sessions) {
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${session.token}`)
+      .expect(200);
+    assert.equal(me.body.id, session.account.id);
+    await request(app)
+      .get('/api/products/manage')
+      .set('Authorization', `Bearer ${session.token}`)
+      .expect(200);
+  }
+  const preflight = await request(app)
+    .options('/api/products/manage')
+    .set('Origin', 'https://kova-ten-omega.vercel.app')
+    .set('Access-Control-Request-Method', 'GET')
+    .set('Access-Control-Request-Headers', 'authorization,content-type')
+    .expect(204);
+  assert.match(preflight.headers['access-control-allow-headers'], /authorization/i);
+  await request(app)
+    .post('/api/auth/logout')
+    .set('Authorization', `Bearer ${sessions[0].token}`)
+    .expect(204);
+  await request(app)
+    .get('/api/auth/me')
+    .set('Authorization', `Bearer ${sessions[1].token}`)
+    .expect(200);
+});
+
+test('la revisión pública cambia al editar catálogo y contenido sin exponer datos privados', async () => {
+  const before = await request(app).get('/api/updates').expect(200);
+  assert.deepEqual(Object.keys(before.body).sort(), ['catalog', 'content']);
+  assert.equal(before.headers['cache-control'], 'no-store');
+  const product = await Product.create(productData);
+  const stamp = new Date(Date.now() + 1000);
+  await Product.updateOne(
+    { _id: product.id },
+    { $set: { updatedAt: stamp } },
+    { timestamps: false },
+  );
+  const catalog = await request(app).get('/api/updates').expect(200);
+  assert.notEqual(catalog.body.catalog, before.body.catalog);
+  await Content.updateOne(
+    { key: 'accessBanner' },
+    { $set: { updatedAt: stamp } },
+    { timestamps: false },
+  );
+  const content = await request(app).get('/api/updates').expect(200);
+  assert.notEqual(content.body.content, catalog.body.content);
+});

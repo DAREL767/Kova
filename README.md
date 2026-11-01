@@ -45,6 +45,8 @@ Variables:
 
 El backend solo sirve la API y `/health`. Las imágenes subidas se guardan en MongoDB GridFS y se sirven por `/api/media/:id`.
 
+El frontend conserva el token de sesión en `sessionStorage` por pestaña y lo envía como Bearer, también al subir imágenes. Esto permite iniciar sesión cuando el navegador bloquea cookies entre Vercel y Render. Si el almacenamiento no está disponible, la sesión se mantiene en memoria hasta cerrar o recargar la página. El servidor sigue comprobando caducidad, usuario activo y revocación; las cookies existentes siguen siendo compatibles.
+
 ### Frontend
 
 Desde `frontend/`: `npm ci`, `npm run build`. La salida está en `frontend/dist/`.
@@ -63,13 +65,18 @@ El alojamiento del frontend debe devolver `index.html` para las rutas de React, 
 - Cada variante/color exige de 2 a 12 referencias de imágenes diferentes. La primera es la portada y la segunda aparece al pasar el cursor.
 - La ropa se presenta en cuadrícula; el carrusel de calzado se alimenta de las categorías de calzado. Las recomendaciones excluyen el producto abierto, priorizan su categoría y completan con otros productos activos.
 - El carrusel promocional del encabezado se administra por separado.
+- Los banners de acceso y «Nosotros» admiten imagen, título y texto de apoyo sin botones ni enlaces. La imagen del cuerpo de «Nosotros» también se puede gestionar desde el panel.
 - Las compras son simuladas, descuentan inventario y quedan en el perfil. Las solicitudes de devolución aparecen en la cuenta; el flujo existente permite al personal aceptarlas y reponer inventario.
+
+Las imágenes del primer bloque y del banner se preparan antes de mostrarlo, con un máximo de espera de 1,8 segundos para no bloquear la página si una imagen falla. El resto conserva carga bajo demanda. La página no puede eliminar el tiempo de descarga inicial de una imagen externa.
+
+El catálogo y contenido se actualizan mediante una revisión ligera en `/api/updates` cada 15 segundos y al volver a una pestaña visible. Solo se vuelven a consultar los datos si la revisión cambia, sin sockets. Las pestañas ocultas suspenden las comprobaciones; la edición de formularios del panel no se sobrescribe con actualizaciones de fondo.
 
 ## Verificación
 
 Desde la raíz: `npm run check`, `npm test`, `npm run build:all`.
 
-También se pueden ejecutar `npm run check`, `npm test` y `npm run build` dentro de `backend/`, y `npm run check` y `npm run build` dentro de `frontend/`.
+También se pueden ejecutar `npm run check`, `npm test` y `npm run build` dentro de `backend/` o `frontend/`. Las pruebas del frontend usan el soporte de transformación de TypeScript de Node.js 22.
 
 Las pruebas de backend ejecutan MongoDB temporal y requieren conexiones locales. Nunca utilizan la base configurada en `.env`.
 

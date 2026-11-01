@@ -204,7 +204,13 @@ export function Footer() {
     </footer>
   );
 }
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   const [selected, setSelected] = useState(0);
   const variant = product.variants[selected] ?? product.variants[0];
   const available = variant?.sizes.some((s) => s.stock > 0);
@@ -212,7 +218,12 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className="product-card">
       <Link className="product-image" to={`/prenda/${product._id}?color=${variant.key}`}>
-        <img src={variant.images[0]} alt={`${product.name}, ${variant.color}`} loading="lazy" />
+        <img
+          src={variant.images[0]}
+          alt={`${product.name}, ${variant.color}`}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+        />
         <img className="second-image" src={variant.images[1]} alt="" loading="lazy" />
         <span className="product-tag">{available ? 'KOVA COLLECTION' : 'AGOTADO'}</span>
         <span className="product-arrow">

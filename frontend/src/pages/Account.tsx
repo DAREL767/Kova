@@ -15,11 +15,33 @@ import {
 import { api, send } from '../api';
 import { useStore } from '../store';
 import { Empty, ErrorMessage, Loading } from '../components';
-import { money, type Order, type Product } from '../types';
+import { money, type Order, type Product, type Content, type Banner } from '../types';
+import { defaultAccessBanner } from '../brand';
+import { preloadImages } from '../images';
 import { BrandIcon } from '../BrandIcon';
 
 export function Access() {
-  const { user, login, ready } = useStore();
+  const { user, login, ready, contentVersion } = useStore();
+  const [banner, setBanner] = useState<Banner>(defaultAccessBanner);
+  const [bannerReady, setBannerReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api<Content[]>('/content')
+      .then(async (content) => {
+        const next =
+          (content.find((item) => item.key === 'accessBanner')?.value as Banner) ??
+          defaultAccessBanner;
+        await preloadImages([next.image, '/logo.png']);
+        if (active) setBanner(next);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setBannerReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [contentVersion]);
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [register, setRegister] = useState(false);
@@ -31,6 +53,7 @@ export function Access() {
   const target = requestedTarget ?? (user && user.role !== 'customer' ? '/personal' : '/cuenta');
   if (!ready) return <Loading />;
   if (user) return <Navigate to={target} replace />;
+  if (!bannerReady) return <Loading />;
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
@@ -53,14 +76,19 @@ export function Access() {
   }
   return (
     <div className="access-page">
-      <div className="access-art">
+      <div
+        className={`access-art ${banner.image ? 'image-banner' : ''}`}
+        style={
+          banner.image
+            ? {
+                backgroundImage: `linear-gradient(0deg,#0009,#0003),url(${JSON.stringify(banner.image)})`,
+              }
+            : undefined
+        }
+      >
         <img src="/logo.png" alt="KOVA" />
-        <span>
-          EL MOVIMIENTO
-          <br />
-          EMPIEZA CONTIGO.
-        </span>
-        <small>ROPA & CALZADO · IBAGUÉ, COLOMBIA</small>
+        <span className="preserve">{banner.title}</span>
+        <small className="preserve">{banner.subtitle}</small>
       </div>
       <div className="access-form">
         <span className="eyebrow">TU ESPACIO KOVA</span>

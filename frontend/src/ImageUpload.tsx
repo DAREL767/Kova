@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Upload } from 'lucide-react';
 import { ErrorMessage } from './components';
-import { apiUrl } from './api';
+import { apiUrl, sessionHeaders, setSessionToken } from './api';
 export function ImageUpload({
   onUploaded,
   multiple = false,
@@ -41,9 +41,16 @@ export function ImageUpload({
                   method: 'POST',
                   body: form,
                   credentials: 'include',
+                  headers: sessionHeaders(),
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error ?? 'No se pudo subir la imagen');
+                if (!response.ok) {
+                  if (response.status === 401) {
+                    setSessionToken('');
+                    window.dispatchEvent(new Event('kova-session-expired'));
+                  }
+                  throw new Error(data.error ?? 'No se pudo subir la imagen');
+                }
                 urls.push(apiUrl(`/media/${data.url.split('/').pop()}`));
               }
             } catch (err) {

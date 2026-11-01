@@ -7,5 +7,5 @@ export const Content = model(
       value: { type: Schema.Types.Mixed, required: true },
     },
     { timestamps: true },
-  ),
+  ).index({ updatedAt: -1 }),
 );

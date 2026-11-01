@@ -28,7 +28,9 @@ const productSchema = new Schema(
     displayOrder: { type: Number, default: Math.random, immutable: true },
   },
   { timestamps: true, optimisticConcurrency: true },
-).index({ active: 1, category: 1, gender: 1 });
+)
+  .index({ active: 1, category: 1, gender: 1 })
+  .index({ updatedAt: -1 });
 productSchema.pre('validate', function () {
   if (String(this.category) === 'tenis') this.category = 'calzado';
 });

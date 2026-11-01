@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "build": "npm --prefix backend run build",
-    "test": "npm --prefix backend test",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
     "start": "npm --prefix backend start",
     "seed:admin": "npm --prefix backend run seed:admin",
     "build:frontend": "npm --prefix frontend run build",

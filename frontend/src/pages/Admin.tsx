@@ -17,7 +17,12 @@ import {
   type User,
   type ProductPageResult,
 } from '../types';
-import { defaultHomeBanner, defaultContactBanner } from '../brand';
+import {
+  defaultHomeBanner,
+  defaultContactBanner,
+  defaultAccessBanner,
+  defaultAboutBanner,
+} from '../brand';
 import { BannerEditor } from '../BannerEditor';
 import { ImageUpload } from '../ImageUpload';
 
@@ -38,7 +43,7 @@ const blank = (): Draft => ({
   variants: [blankVariant()],
 });
 export function Admin() {
-  const { user, ready, notify } = useStore();
+  const { user, ready, notify, catalogVersion } = useStore();
   const [tab, setTab] = useState('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [draft, setDraft] = useState<Draft>(blank);
@@ -53,6 +58,8 @@ export function Admin() {
   const [staff, setStaff] = useState<User[]>([]);
   const [homeBanner, setHomeBanner] = useState<Banner | null>(null);
   const [contactBanner, setContactBanner] = useState<Banner | null>(null);
+  const [accessBanner, setAccessBanner] = useState<Banner | null>(null);
+  const [aboutBanner, setAboutBanner] = useState<Banner | null>(null);
   const [adminPage, setAdminPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(0);
@@ -73,11 +80,38 @@ export function Admin() {
       (c.find((i) => i.key === 'contactBanner')?.value as Banner) ?? defaultContactBanner,
     );
     setReturns(r);
+    setAccessBanner(
+      (c.find((i) => i.key === 'accessBanner')?.value as Banner) ?? defaultAccessBanner,
+    );
+    setAboutBanner((c.find((i) => i.key === 'aboutBanner')?.value as Banner) ?? defaultAboutBanner);
     setStaff(people);
   }
   useEffect(() => {
     if (user && user.role !== 'customer') load().catch((e) => setError(e.message));
   }, [user, adminPage]);
+  useEffect(() => {
+    if (
+      !catalogVersion ||
+      !user ||
+      user.role === 'customer' ||
+      tab !== 'products' ||
+      formOpen ||
+      busy
+    )
+      return;
+    let active = true;
+    api<ProductPageResult>(`/products/manage?limit=24&page=${adminPage}`)
+      .then((data) => {
+        if (!active) return;
+        setProducts(data.items);
+        setTotal(data.total);
+        setPages(data.pages);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [catalogVersion, user, tab, formOpen, busy, adminPage]);
   if (!ready) return <Loading />;
   if (!user) return <Navigate to="/acceso?next=/personal" replace />;
   if (user.role === 'customer') return <Navigate to="/cuenta" replace />;
@@ -474,6 +508,22 @@ export function Admin() {
       )}
       {tab === 'content' && (
         <div className="content-editor">
+          {accessBanner && (
+            <BannerEditor
+              contentKey="accessBanner"
+              initial={accessBanner}
+              label="BANNER DE ACCESO"
+              simple
+            />
+          )}
+          {aboutBanner && (
+            <BannerEditor
+              contentKey="aboutBanner"
+              initial={aboutBanner}
+              label="BANNER DE NOSOTROS"
+              simple
+            />
+          )}
           {homeBanner && (
             <BannerEditor contentKey="homeBanner" initial={homeBanner} label="BANNER DE INICIO" />
           )}
@@ -579,6 +629,26 @@ export function Admin() {
             }}
           >
             <h2>NOSOTROS</h2>
+            <label>
+              Imagen de la historia (opcional)
+              <input
+                value={about.image ?? ''}
+                onChange={(event) => setAbout({ ...about, image: event.target.value || undefined })}
+              />
+            </label>
+            <ImageUpload onUploaded={(urls) => setAbout({ ...about, image: urls[0] })} />
+            {about.image && (
+              <div className="banner-image-preview">
+                <img src={about.image} alt="Vista previa de la historia" />
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={() => setAbout({ ...about, image: undefined })}
+                >
+                  Quitar imagen
+                </button>
+              </div>
+            )}
             <p>
               La web muestra el texto de marca original hasta que guardes un contenido
               personalizado.
