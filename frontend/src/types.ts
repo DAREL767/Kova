@@ -5,7 +5,6 @@ export const categories = [
   'pantalonetas',
   'bermudas',
   'sacos',
-  'pantalones',
   'calzado',
   'camisas',
 ] as const;
@@ -64,6 +63,12 @@ export interface About {
   text: string;
   image?: string;
 }
+export interface AboutSection extends About {
+  id: string;
+}
+export interface AboutContent {
+  sections: AboutSection[];
+}
 export interface Banner {
   title: string;
   subtitle: string;
@@ -79,7 +84,7 @@ export interface ProductPageResult {
 }
 export interface Content {
   key: string;
-  value: Slide[] | About | Banner;
+  value: Slide[] | About | AboutContent | Banner;
 }
 export const money = (value: number) =>
   new Intl.NumberFormat('es-CO', {

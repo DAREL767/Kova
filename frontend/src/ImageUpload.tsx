@@ -5,9 +5,11 @@ import { apiUrl, sessionHeaders, setSessionToken } from './api';
 export function ImageUpload({
   onUploaded,
   multiple = false,
+  onBusyChange,
 }: {
   onUploaded: (urls: string[]) => void;
   multiple?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +33,7 @@ export function ImageUpload({
               return;
             }
             setBusy(true);
+            onBusyChange?.(true);
             setError('');
             const urls: string[] = [];
             try {
@@ -58,6 +61,7 @@ export function ImageUpload({
             } finally {
               if (urls.length) onUploaded(urls);
               setBusy(false);
+              onBusyChange?.(false);
               input.value = '';
             }
           }}

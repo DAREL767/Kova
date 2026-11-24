@@ -54,7 +54,6 @@ export function Header() {
                             pantalonetas: 'pantalonetas',
                             bermudas: 'pantalonetas',
                             sacos: 'buzos',
-                            pantalones: 'pantalonetas',
                           } as Record<string, BrandIconName>
                         )[c]
                       }
@@ -187,7 +186,7 @@ export function Footer() {
           <h3>ESTAMOS CERCA</h3>
           <Link to="/contacto">Encuéntranos</Link>
           <a href="tel:+573003115677">300 311 5677</a>
-          <a href="https://www.instagram.com/pollo_store25/" target="_blank" rel="noreferrer">
+          <a href="https://www.instagram.com/kova_jd/" target="_blank" rel="noreferrer">
             Instagram <ArrowRight size={13} />
           </a>
         </div>

@@ -20,14 +20,15 @@ import {
   type Content,
   type Slide,
   type About,
+  type AboutContent,
+  type AboutSection,
   type Banner,
   type ProductPageResult,
 } from '../types';
 import { defaultHomeBanner, defaultContactBanner, defaultAboutBanner } from '../brand';
 import { preloadImages } from '../images';
 import { BrandIcon } from '../BrandIcon';
-import sourceText from '../brand-content.json';
-const brandText = sourceText.map((text) => text.trim());
+import { getAboutSections } from '../about';
 
 export function Home() {
   const { catalogVersion, contentVersion } = useStore();
@@ -246,12 +247,6 @@ export function Home() {
               onClick={() => setParams({ category: 'camisetas', gender: 'hombre' })}
             >
               Camisetas
-            </button>
-            <button
-              className={category === 'pantalones' ? 'active' : ''}
-              onClick={() => setParams({ category: 'pantalones', gender: 'hombre' })}
-            >
-              Pantalones
             </button>
             <button
               className={category === 'buzos' ? 'active' : ''}
@@ -524,7 +519,7 @@ export function ProductPage() {
 
 export function AboutPage() {
   const { contentVersion } = useStore();
-  const [custom, setCustom] = useState<About | null>(null);
+  const [sections, setSections] = useState<AboutSection[]>([]);
   const [banner, setBanner] = useState<Banner>(defaultAboutBanner);
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -533,11 +528,13 @@ export function AboutPage() {
       .then(async (c) => {
         const next =
           (c.find((i) => i.key === 'aboutBanner')?.value as Banner) ?? defaultAboutBanner;
-        const about = (c.find((i) => i.key === 'about')?.value as About) ?? null;
-        await preloadImages([next.image, about?.image]);
+        const about = getAboutSections(
+          c.find((i) => i.key === 'about')?.value as About | AboutContent | undefined,
+        );
+        await preloadImages([next.image, about[0]?.image]);
         if (!active) return;
         setBanner(next);
-        setCustom(about);
+        setSections(about);
       })
       .catch(() => {})
       .finally(() => {
@@ -547,14 +544,6 @@ export function AboutPage() {
       active = false;
     };
   }, [contentVersion]);
-  const headings = ['Historia', '¿A que nos dedicamos?', 'Mision', 'Vision', 'Valores'];
-  const labels: Record<string, string> = {
-    Historia: 'Nuestra historia',
-    '¿A que nos dedicamos?': 'Lo que hacemos',
-    Mision: 'Nuestra misión',
-    Vision: 'Nuestra visión',
-    Valores: 'Nuestros valores',
-  };
   if (!ready) return <Loading />;
   return (
     <>
@@ -573,34 +562,30 @@ export function AboutPage() {
         <p className="preserve">{banner.subtitle}</p>
       </section>
       <div className="about-body page">
-        {custom ? (
-          <>
-            <h2>{custom.title}</h2>
-            <p className="preserve">{custom.text}</p>
-            {custom.image && (
-              <img className="about-image" src={custom.image} alt="Nuestra historia Kova" />
-            )}
-          </>
-        ) : (
-          headings.map((heading, i) => {
-            const start = brandText.indexOf(heading);
-            const end =
-              i + 1 < headings.length
-                ? brandText.indexOf(headings[i + 1])
-                : brandText.indexOf('Contactos');
-            return (
-              <section className="about-section" key={heading}>
-                <span className="eyebrow">0{i + 1}</span>
-                <h2>{labels[heading]}</h2>
-                <div>
-                  {brandText.slice(start + 1, end).map((p, j) => (
-                    <p key={j}>{p}</p>
-                  ))}
-                </div>
-              </section>
-            );
-          })
-        )}
+        {sections.map((section, index) => (
+          <section className="about-section" key={section.id}>
+            <span className="eyebrow">{String(index + 1).padStart(2, '0')}</span>
+            <h2>{section.title}</h2>
+            <div>
+              {section.text
+                .split(/\n\s*\n/)
+                .filter(Boolean)
+                .map((paragraph, index) => (
+                  <p className="preserve" key={index}>
+                    {paragraph}
+                  </p>
+                ))}
+              {section.image && (
+                <img
+                  className="about-image"
+                  src={section.image}
+                  alt={section.title}
+                  loading={index ? 'lazy' : 'eager'}
+                />
+              )}
+            </div>
+          </section>
+        ))}
       </div>
     </>
   );
@@ -681,8 +666,8 @@ export function ContactPage() {
         <div>
           <BrandIcon name="instagram" />
           <h2>SÍGUENOS</h2>
-          <a href="https://www.instagram.com/pollo_store25/" target="_blank" rel="noreferrer">
-            @pollo_store25 <ArrowRight size={15} />
+          <a href="https://www.instagram.com/kova_jd/" target="_blank" rel="noreferrer">
+            @kova_jd <ArrowRight size={15} />
           </a>
         </div>
       </div>

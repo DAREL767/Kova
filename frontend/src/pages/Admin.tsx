@@ -13,6 +13,8 @@ import {
   type Content,
   type Order,
   type About,
+  type AboutContent,
+  type AboutSection,
   type Banner,
   type User,
   type ProductPageResult,
@@ -25,6 +27,8 @@ import {
 } from '../brand';
 import { BannerEditor } from '../BannerEditor';
 import { ImageUpload } from '../ImageUpload';
+import { AboutEditor } from '../AboutEditor';
+import { getAboutSections } from '../about';
 
 const blankVariant = (): Variant => ({
   key: '',
@@ -50,7 +54,7 @@ export function Admin() {
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [slides, setSlides] = useState<Slide[]>([]);
-  const [about, setAbout] = useState<About>({ title: '', text: '' });
+  const [about, setAbout] = useState<AboutSection[] | null>(null);
   const [returns, setReturns] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -75,7 +79,9 @@ export function Admin() {
     setTotal(p.total);
     setPages(p.pages);
     setSlides((c.find((i) => i.key === 'carousel')?.value as Slide[]) ?? []);
-    setAbout((c.find((i) => i.key === 'about')?.value as About) ?? { title: '', text: '' });
+    setAbout(
+      getAboutSections(c.find((i) => i.key === 'about')?.value as About | AboutContent | undefined),
+    );
     setHomeBanner((c.find((i) => i.key === 'homeBanner')?.value as Banner) ?? defaultHomeBanner);
     setContactBanner(
       (c.find((i) => i.key === 'contactBanner')?.value as Banner) ?? defaultContactBanner,
@@ -651,64 +657,7 @@ export function Admin() {
               </button>
             </div>
           </form>
-          <form
-            className="editor"
-            onSubmit={(e) => {
-              e.preventDefault();
-              run(
-                () => api('/content', send('PUT', { key: 'about', value: about })),
-                'Nosotros actualizado',
-              );
-            }}
-          >
-            <h2>NOSOTROS</h2>
-            <label>
-              Imagen de la historia (opcional)
-              <input
-                value={about.image ?? ''}
-                onChange={(event) => setAbout({ ...about, image: event.target.value || undefined })}
-              />
-            </label>
-            <ImageUpload onUploaded={(urls) => setAbout({ ...about, image: urls[0] })} />
-            {about.image && (
-              <div className="banner-image-preview">
-                <img src={about.image} alt="Vista previa de la historia" />
-                <button
-                  type="button"
-                  className="text-link"
-                  onClick={() => setAbout({ ...about, image: undefined })}
-                >
-                  Quitar imagen
-                </button>
-              </div>
-            )}
-            <p>
-              La web muestra el texto de marca original hasta que guardes un contenido
-              personalizado.
-            </p>
-            <label>
-              Título
-              <input
-                required
-                maxLength={160}
-                value={about.title}
-                onChange={(e) => setAbout({ ...about, title: e.target.value })}
-              />
-            </label>
-            <label>
-              Contenido
-              <textarea
-                required
-                rows={12}
-                maxLength={20000}
-                value={about.text}
-                onChange={(e) => setAbout({ ...about, text: e.target.value })}
-              />
-            </label>
-            <button className="button" disabled={busy}>
-              GUARDAR NOSOTROS
-            </button>
-          </form>
+          {about && <AboutEditor initial={about} onSaved={setAbout} />}
         </div>
       )}
       {tab === 'staff' && user.role === 'admin' && (

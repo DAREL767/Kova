@@ -3,7 +3,7 @@ import type { FilterQuery } from 'mongoose';
 import { z } from 'zod';
 import { Product } from './model.js';
 import { productInput, productUpdateInput } from './validation.js';
-import { categories, normalizeCategory } from './categories.js';
+import { categories, catalogCategories, normalizeCategory } from './categories.js';
 import { authenticate, permit } from '../auth/middleware.js';
 import { HttpError, validate } from '../../shared/http.js';
 
@@ -21,14 +21,14 @@ const canonical = <T extends { category?: string }>(p: T) => ({
   category: normalizeCategory(p.category),
 });
 function filter(query: z.infer<typeof queryInput>): FilterQuery<unknown> {
-  const match: FilterQuery<unknown> = { active: true };
+  const match: FilterQuery<unknown> = { active: true, category: { $in: catalogCategories } };
   if (query.category)
     match.category = query.category === 'calzado' ? { $in: ['calzado', 'tenis'] } : query.category;
   else if (query.collection)
     match.category =
       query.collection === 'calzado'
         ? { $in: ['calzado', 'tenis', 'guayos'] }
-        : { $nin: ['calzado', 'tenis', 'guayos'] };
+        : { $in: categories.filter((category) => !['calzado', 'guayos'].includes(category)) };
   if (query.gender)
     match.gender = query.gender === 'unisex' ? 'unisex' : { $in: [query.gender, 'unisex'] };
   if (query.q)
@@ -82,12 +82,20 @@ catalog.get('/', async (req, res) => {
   );
 });
 catalog.get('/:id', async (req, res) => {
-  const product = await Product.findOne({ _id: req.params.id, active: true });
+  const product = await Product.findOne({
+    _id: req.params.id,
+    active: true,
+    category: { $in: catalogCategories },
+  });
   if (!product) throw new HttpError(404, 'Prenda no encontrada');
   res.json(product);
 });
 catalog.get('/:id/suggestions', async (req, res) => {
-  const product = await Product.findOne({ _id: req.params.id, active: true });
+  const product = await Product.findOne({
+    _id: req.params.id,
+    active: true,
+    category: { $in: catalogCategories },
+  });
   if (!product) throw new HttpError(404, 'Prenda no encontrada');
   const related = await Product.aggregate([
     {
@@ -105,7 +113,13 @@ catalog.get('/:id/suggestions', async (req, res) => {
   const others =
     related.length < 8
       ? await Product.aggregate([
-          { $match: { active: true, _id: { $nin: [product._id, ...related.map((p) => p._id)] } } },
+          {
+            $match: {
+              active: true,
+              category: { $in: catalogCategories },
+              _id: { $nin: [product._id, ...related.map((p) => p._id)] },
+            },
+          },
           { $sample: { size: 8 - related.length } },
         ])
       : [];

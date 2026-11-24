@@ -1,7 +1,6 @@
 export const categories = [
   'calzado',
   'camisas',
-  'pantalones',
   'guayos',
   'camisetas',
   'buzos',
@@ -9,4 +8,5 @@ export const categories = [
   'bermudas',
   'sacos',
 ] as const;
+export const catalogCategories = [...categories, 'tenis'];
 export const normalizeCategory = (value: unknown) => (value === 'tenis' ? 'calzado' : value);

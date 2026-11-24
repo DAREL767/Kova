@@ -66,6 +66,8 @@ El alojamiento del frontend debe devolver `index.html` para las rutas de React, 
 - La ropa se presenta en cuadrícula; el carrusel de calzado se alimenta de las categorías de calzado. Las recomendaciones excluyen el producto abierto, priorizan su categoría y completan con otros productos activos.
 - El carrusel promocional del encabezado se administra por separado.
 - Los banners de acceso y «Nosotros» admiten imagen, título y texto de apoyo sin botones ni enlaces. La imagen del cuerpo de «Nosotros» también se puede gestionar desde el panel.
+- «Nosotros» se organiza en hasta 30 secciones con título, párrafos e imagen opcional por sección. El panel muestra tarjetas con lápiz y basurero y abre un único formulario para añadir o editar. El contenido anterior se conserva como una sección; si aún no hay contenido guardado, la historia original aparece dividida en secciones editables.
+- La categoría Pantalones está retirada de navegación, registro, consultas y nuevas compras. Los registros históricos permanecen almacenados para conservar los pedidos anteriores, pero no se muestran ni se ofrecen de nuevo en el catálogo.
 - Las compras son simuladas, descuentan inventario y quedan en el perfil. Las solicitudes de devolución aparecen en la cuenta; el flujo existente permite al personal aceptarlas y reponer inventario.
 
 Las imágenes del primer bloque y del banner se preparan antes de mostrarlo, con un máximo de espera de 1,8 segundos para no bloquear la página si una imagen falla. El resto conserva carga bajo demanda. La página no puede eliminar el tiempo de descarga inicial de una imagen externa.

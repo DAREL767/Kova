@@ -5,6 +5,7 @@ import { authenticate, permit } from '../auth/middleware.js';
 import { Product } from '../catalog/model.js';
 import { HttpError, validate } from '../../shared/http.js';
 import { Cart, Order } from './models.js';
+import { catalogCategories } from '../catalog/categories.js';
 
 const cartInput = z
   .object({
@@ -43,7 +44,11 @@ shop.put('/cart', validate(cartInput), async (req, res) => {
         i.size === item.size,
     );
     if (existing && item.quantity <= existing.quantity) continue;
-    const product = await Product.findOne({ _id: item.productId, active: true });
+    const product = await Product.findOne({
+      _id: item.productId,
+      active: true,
+      category: { $in: catalogCategories },
+    });
     const size = product?.variants
       .find((v) => v.key === item.variantKey)
       ?.sizes.find((s) => s.size === item.size);
@@ -79,9 +84,11 @@ shop.post(
         const snapshots = [];
         let total = 0;
         for (const item of cart.items) {
-          const product = await Product.findOne({ _id: item.productId, active: true }).session(
-            session,
-          );
+          const product = await Product.findOne({
+            _id: item.productId,
+            active: true,
+            category: { $in: catalogCategories },
+          }).session(session);
           const variant = product?.variants.find((v) => v.key === item.variantKey);
           const size = variant?.sizes.find((s) => s.size === item.size);
           if (!product || !variant || !size || size.stock < item.quantity)
@@ -153,6 +160,8 @@ shop.post('/admin/returns/:id/accept', permit('admin', 'staff'), async (req, res
       const product = await Product.findById(item.productId).session(session);
       if (!product)
         throw new HttpError(409, 'No se encontró la referencia de inventario de esta devolución');
+      // Historical orders remain returnable, but retired categories do not re-enter inventory.
+      if (!catalogCategories.includes(String(product.category))) continue;
       let variant = product.variants.find((v) => v.key === item.variantKey);
       if (!variant) {
         if (!item.variantSnapshot?.images?.length)
