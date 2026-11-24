@@ -58,7 +58,7 @@ El alojamiento del frontend debe devolver `index.html` para las rutas de React, 
 ## Cuentas y catálogo
 
 - El registro público siempre crea clientes. No existe un selector de roles.
-- El administrador crea y desactiva hasta dos cuentas activas de personal.
+- El administrador crea, edita y desactiva hasta dos cuentas activas de personal. En «Personal», el botón de editar permite cambiar nombre, correo y contraseña; dejar la nueva contraseña vacía conserva la anterior. Cambiar correo o contraseña revoca las sesiones existentes de esa cuenta y obliga a iniciar sesión con las nuevas credenciales.
 - Administrador y personal ingresan por defecto al panel interno. Solo el administrador gestiona cuentas de personal.
 - Las tres cuentas internas tienen los mismos permisos para crear, editar y retirar prendas, subir imágenes y modificar banners, carrusel y contenido. La desactivación de cuentas de personal está reservada al administrador y revoca sus sesiones.
 - El administrador puede usar un nombre de usuario interno sin correo. El registro público conserva el correo obligatorio y el mínimo de 12 caracteres para las contraseñas; las credenciales internas no se guardan en el repositorio.

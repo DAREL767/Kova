@@ -2122,6 +2122,20 @@ form .button {
   font-size: 11px;
   color: var(--muted);
 }
+.staff-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.staff-person > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.staff-edit-form {
+  padding: 18px;
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+}
 .image-upload {
   margin: 12px 0 25px;
 }

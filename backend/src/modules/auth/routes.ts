@@ -118,3 +118,30 @@ auth.delete('/staff/:id', authenticate, permit('admin'), async (req, res) => {
   if (!user) throw new HttpError(404, 'Cuenta de personal no encontrada');
   res.sendStatus(204);
 });
+
+auth.patch(
+  '/staff/:id',
+  authenticate,
+  permit('admin'),
+  validate(
+    credentials
+      .partial()
+      .refine((value) => Object.keys(value).length > 0, 'Indica al menos un cambio'),
+  ),
+  async (req, res) => {
+    const { password, ...data } = req.body;
+    const updates = password ? { ...data, passwordHash: await bcrypt.hash(password, 12) } : data;
+    const user = await User.findOneAndUpdate(
+      { _id: req.params.id, role: 'staff', active: { $ne: false } },
+      {
+        $set: updates,
+        ...(password !== undefined || data.email !== undefined
+          ? { $inc: { tokenVersion: 1 } }
+          : {}),
+      },
+      { new: true, runValidators: true },
+    );
+    if (!user) throw new HttpError(404, 'Cuenta de personal no encontrada');
+    res.json(publicUser(user));
+  },
+);

@@ -56,6 +56,7 @@ export function Admin() {
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const [staff, setStaff] = useState<User[]>([]);
+  const [editingStaff, setEditingStaff] = useState<string | null>(null);
   const [homeBanner, setHomeBanner] = useState<Banner | null>(null);
   const [contactBanner, setContactBanner] = useState<Banner | null>(null);
   const [accessBanner, setAccessBanner] = useState<Banner | null>(null);
@@ -196,6 +197,38 @@ export function Admin() {
       form.reset();
       await load().catch((e) => setError(e.message));
     }
+  }
+  async function saveStaff(e: FormEvent<HTMLFormElement>, person: User) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const changes: { name?: string; email?: string; password?: string } = {};
+    const name = String(form.get('name') ?? '').trim();
+    const email = String(form.get('email') ?? '')
+      .trim()
+      .toLowerCase();
+    const password = String(form.get('password') ?? '');
+    if (name !== person.name) changes.name = name;
+    if (email !== person.email) changes.email = email;
+    if (password) changes.password = password;
+    if (!Object.keys(changes).length) {
+      setEditingStaff(null);
+      return;
+    }
+    if (
+      await run(
+        async () => {
+          const updated = await api<User>(`/auth/staff/${person.id}`, send('PATCH', changes));
+          setStaff((people) =>
+            people.map((account) => (account.id === updated.id ? updated : account)),
+          );
+          setEditingStaff(null);
+        },
+        changes.email || changes.password
+          ? 'Credenciales actualizadas. La cuenta debe iniciar sesión de nuevo.'
+          : 'Cuenta actualizada',
+      )
+    )
+      return;
   }
   return (
     <div className="page admin-page">
@@ -679,61 +712,140 @@ export function Admin() {
         </div>
       )}
       {tab === 'staff' && user.role === 'admin' && (
-        <form className="editor narrow" onSubmit={createStaff}>
+        <div className="editor narrow">
           <h2>PERSONAL ({staff.length} / 2)</h2>
           <p>Tu cuenta de administrador conserva el control de estas dos cuentas internas.</p>
           {staff.map((person) => (
-            <div className="staff-person" key={person.id}>
-              <div>
-                <b>{person.name}</b>
-                <p>{person.email}</p>
+            <article key={person.id}>
+              <div className="staff-person">
+                <div>
+                  <b>{person.name}</b>
+                  <p>{person.email}</p>
+                </div>
+                <div className="staff-actions">
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label={`Editar ${person.name}`}
+                    disabled={busy}
+                    onClick={() => {
+                      setEditingStaff(editingStaff === person.id ? null : person.id);
+                      setError('');
+                    }}
+                  >
+                    <Pencil size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon"
+                    aria-label={`Desactivar ${person.name}`}
+                    disabled={busy}
+                    onClick={async () => {
+                      if (window.confirm(`¿Desactivar el acceso de ${person.name}?`)) {
+                        if (
+                          await run(
+                            () => api(`/auth/staff/${person.id}`, { method: 'DELETE' }),
+                            'Cuenta desactivada',
+                          )
+                        ) {
+                          if (editingStaff === person.id) setEditingStaff(null);
+                          await load().catch((e) => setError(e.message));
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                className="icon"
-                aria-label={`Desactivar ${person.name}`}
-                disabled={busy}
-                onClick={async () => {
-                  if (window.confirm(`¿Desactivar el acceso de ${person.name}?`)) {
-                    if (
-                      await run(
-                        () => api(`/auth/staff/${person.id}`, { method: 'DELETE' }),
-                        'Cuenta desactivada',
-                      )
-                    )
-                      await load().catch((e) => setError(e.message));
-                  }
-                }}
-              >
-                <Trash2 size={17} />
-              </button>
-            </div>
+              {editingStaff === person.id && (
+                <form className="staff-edit-form" onSubmit={(event) => saveStaff(event, person)}>
+                  <h3>Editar cuenta de {person.name}</h3>
+                  <label>
+                    Nombre
+                    <input
+                      name="name"
+                      required
+                      minLength={2}
+                      maxLength={100}
+                      defaultValue={person.name}
+                      disabled={busy}
+                    />
+                  </label>
+                  <label>
+                    Correo
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      defaultValue={person.email}
+                      disabled={busy}
+                    />
+                  </label>
+                  <label>
+                    Nueva contraseña (opcional)
+                    <input
+                      name="password"
+                      type="password"
+                      minLength={12}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      disabled={busy}
+                    />
+                    <small>
+                      Déjala vacía para conservar la actual. Mínimo 12 caracteres para cambiarla.
+                    </small>
+                  </label>
+                  <p>
+                    Si cambias el correo o la contraseña, se cerrarán las sesiones de esta cuenta.
+                  </p>
+                  <div className="editor-actions">
+                    <button type="submit" className="button" disabled={busy}>
+                      {busy ? 'GUARDANDO…' : 'GUARDAR CAMBIOS'}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-link"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditingStaff(null);
+                        setError('');
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              )}
+            </article>
           ))}
-          <h3>Nueva cuenta</h3>
-          <p>Puedes crear hasta dos cuentas de personal.</p>
-          <label>
-            Nombre
-            <input name="name" required minLength={2} maxLength={100} />
-          </label>
-          <label>
-            Correo
-            <input name="email" type="email" required />
-          </label>
-          <label>
-            Contraseña
-            <input
-              name="password"
-              type="password"
-              minLength={12}
-              maxLength={72}
-              required
-              autoComplete="new-password"
-            />
-          </label>
-          <button className="button" disabled={busy || staff.length >= 2}>
-            CREAR CUENTA
-          </button>
-        </form>
+          <form onSubmit={createStaff}>
+            <h3>Nueva cuenta</h3>
+            <p>Puedes crear hasta dos cuentas de personal.</p>
+            <label>
+              Nombre
+              <input name="name" required minLength={2} maxLength={100} />
+            </label>
+            <label>
+              Correo
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Contraseña
+              <input
+                name="password"
+                type="password"
+                minLength={12}
+                maxLength={72}
+                required
+                autoComplete="new-password"
+              />
+            </label>
+            <button className="button" disabled={busy || staff.length >= 2}>
+              CREAR CUENTA
+            </button>
+          </form>
+        </div>
       )}
       {tab === 'returns' && (
         <>
