@@ -74,6 +74,14 @@ Las imágenes del primer bloque y del banner se preparan antes de mostrarlo, con
 
 El catálogo y contenido se actualizan mediante una revisión ligera en `/api/updates` cada 15 segundos y al volver a una pestaña visible. Solo se vuelven a consultar los datos si la revisión cambia, sin sockets. Las pestañas ocultas suspenden las comprobaciones; la edición de formularios del panel no se sobrescribe con actualizaciones de fondo.
 
+## Ruleta independiente
+
+La ruleta se sirve directamente desde `frontend/public/experiencias/ruleta-kova-7d9a41.html`, sin React, navegación de la tienda, sesiones ni llamadas a la API. No hay enlaces desde la tienda y la página incluye `noindex,nofollow,noarchive`.
+
+Dirección del QR: `https://kova-ten-omega.vercel.app/experiencias/ruleta-kova-7d9a41.html`.
+
+Los QR transparentes están en `artifacts/ruleta-kova/qr-ruleta-kova.png` y `.svg`. La ruta debe mantenerse para que el material impreso siga funcionando. La elección de pestaña o navegador al escanear depende del lector del dispositivo. Se conservan los premios y el funcionamiento del HTML proporcionado.
+
 ## Verificación
 
 Desde la raíz: `npm run check`, `npm test`, `npm run build:all`.
